@@ -214,7 +214,7 @@ if create_db:
                 hash text, name text, idate text, bdate text, edate text, 
                 ptype text, direction text, orbitno integer, 
                 relorbitno integer, footprint text, platform text,
-                footprint_r1 text, centroid_r1 text);
+                footprint_r1 text, centroid_r1 text, cloudcover text);
             CREATE UNIQUE INDEX h ON products(hash);
             CREATE INDEX id ON products(idate);
             CREATE INDEX bd ON products(bdate);
@@ -226,6 +226,7 @@ if create_db:
             CREATE INDEX rorbno ON products(relorbitno);
             CREATE INDEX fpr1 ON products(footprint_r1);
             CREATE INDEX c1 ON products(centroid_r1);
+            CREATE INDEX cc ON products(cloudcover);
             ''')
     db.commit()
     db.close()
@@ -292,7 +293,7 @@ cur.execute('''select date(idate) as d from products order by d desc limit 1''')
 last = cur.fetchone()
 if last is None or force:
     last = []
-    last.append(fromdate)
+    last.append('2014-01-01')
 
 if verbose:
     print 'Latest ingestion date considered: %s' % last[0]
@@ -309,8 +310,8 @@ for criterium in criteria:
         params.append({'q': '''ingestiondate:[%s TO NOW] AND producttype:%s AND orbitdirection:%s AND footprint:"Intersects(%s)"''' % \
                        (refdate, criterium['type'],criterium['direction'],criterium['polygon']), 'rows': '1000', 'start':'0'})
     else:
-        params.append({'q': '''ingestiondate:[%s TO NOW] AND orbitdirection:%s AND platformname:%s AND footprint:"Intersects(%s)"''' % \
-                       (refdate, criterium['direction'],criterium['platform'],criterium['polygon']), 'rows': '1000', 'start':'0'})
+        params.append({'q': '''ingestiondate:[%s TO NOW] AND cloudcoverpercentage:[%s TO %s] AND platformname:%s AND footprint:"Intersects(%s)"''' % \
+                       (refdate,cloudcoverlow,cloudcoverhigh,criterium['platform'],criterium['polygon']), 'rows': '1000', 'start':'0'})
 
 # urls need encoding due to complexity of arguments
 
@@ -373,10 +374,16 @@ for url in urls:
                     orbitno = string.text
                 if string.attrib['name'] == 'relativeorbitnumber':
                     relorbitno = string.text
-        products.append([id,title,ingdate,footprint,beginposition,endposition,orbitdirection,producttype,orbitno,relorbitno,platform])
+        for string in entry.iter('{http://www.w3.org/2005/Atom}double'):
+            if string.attrib.has_key('name'):
+                if string.attrib['name'] == 'cloudcoverpercentage':
+                    cloudcover = string.text
+        products.append([id,title,ingdate,footprint,beginposition,endposition,orbitdirection,producttype,orbitno,relorbitno,platform,cloudcover])
         if verbose:
             print id, title, ingdate, footprint, beginposition, endposition, \
-                    orbitdirection, producttype, orbitno, relorbitno, platform
+                    orbitdirection, producttype, orbitno, relorbitno, platform, \
+                    cloudcover
+
 
 cur = db.cursor()
 
@@ -395,6 +402,7 @@ for product in products:
     orbitno = product[8]
     relorbitno = product[9]
     platform = product[10]
+    cloudcover = product[11]
     cur.execute('''SELECT COUNT(*) FROM products WHERE hash=?''',(uniqid,))
     row = cur.fetchone()
 
@@ -488,7 +496,7 @@ Platform = $[PlatformName]
 <Data name="OrbitNumber"><value>%s</value></Data>
 <Data name="RelativeOrbitNumber"><value>%s</value></Data>
 <Data name="PlatformName"><value>%s</value></Data>
-</ExtendedData> ''' % (name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,platform)
+</ExtendedData> ''' % (name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,platform,cloudcover)
             buff = '''<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>%s<Placemark><name>%s</name><StyleUrl>#ballon-style</StyleUrl>%s%s</Placemark></Document></kml>''' % (style,name,extdata,poly.ExportToKML())
@@ -500,9 +508,9 @@ Platform = $[PlatformName]
         footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
         centroid_r1 = shapely.wkt.dumps(simple.centroid,rounding_precision=1)
         cur.execute('''INSERT OR REPLACE INTO products 
-                (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1) 
-                VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
-                (uniqid,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1))
+                (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover) 
+                VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
+                (uniqid,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover))
         db.commit()
     else:
         if verbose:
