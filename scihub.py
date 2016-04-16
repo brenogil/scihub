@@ -32,6 +32,11 @@
 #    polygon1 = POLYGON((15.819485626219 40.855620164394,16.445706329344 40.855620164394,16.445706329344 41.120994219991,15.819485626219 41.120994219991,15.819485626219 40.855620164394))
 #    polygon2 = POLYGON((16.349232635497 40.791189284951,16.909535369872 40.791189284951,16.909535369872 41.131338714384,16.349232635497 41.131338714384,16.349232635497 40.791189284951))
 #    
+#    [Platform]
+#    
+#    platform1 = Sentinel-1
+#    platform2 = Sentinel-2
+#
 #    [Types]
 #    
 #    type1 = SLC
@@ -42,10 +47,14 @@
 #    direction1 = Descending
 #    direction2 = Ascending
 #    
-#    [Platform]
-#    
-#    platform1 = Sentinel-1
-#    platform2 = Sentinel-2
+#    [Cloud]
+#    ; Only relevant for Sentinel-2
+#    cloudpercentagelower = 0
+#    cloudpercentageupper = 10
+
+#    [Date_Range]
+#    From = 2015-06-01
+#    To = NOW  ;Do not use
 
 #    [Authentication]
 #    username = XXXXXXXX
@@ -266,7 +275,6 @@ try:
     cloudcoverlow =  config.get('Cloud','cloudpercentagelower')
     cloudcoverhigh =  config.get('Cloud','cloudpercentageupper')
     fromdate = config.get('Date_Range','From')
-    
 
     if len(types) != len(polygons) or len(directions) != len(polygons) or len(platforms) != len(polygons):
         print 'Incorrect number of polygons, types, platforms and direction in configuration file'
@@ -281,7 +289,6 @@ try:
 except configparser.Error, e:
     print 'Error parsing configuration file: %s' % e
     sys.exit(4)
-
 
 if not len(auth):
     print 'Missing ESA SCIHUB authentication information'
@@ -301,15 +308,15 @@ if verbose:
 refdate = last[0] + 'T00:00:00.000Z'
 
 criteria = []
-for i in range(len(polygons)):
+for i in range(len(platforms)):
     criteria.append({'type':types[i], 'direction': directions[i], 'platform':platforms[i], 'polygon':polygons[i]})
 
 params = []
 for criterium in criteria:
-    if platform == "Sentinel-1":
+    if criterium['platform'] == "Sentinel-1":
         params.append({'q': '''ingestiondate:[%s TO NOW] AND producttype:%s AND orbitdirection:%s AND footprint:"Intersects(%s)"''' % \
-                       (refdate, criterium['type'],criterium['direction'],criterium['polygon']), 'rows': '1000', 'start':'0'})
-    else:
+                   (refdate, criterium['type'],criterium['direction'],criterium['polygon']), 'rows': '1000', 'start':'0'})
+    if criterium['platform'] == "Sentinel-2":
         params.append({'q': '''ingestiondate:[%s TO NOW] AND cloudcoverpercentage:[%s TO %s] AND platformname:%s AND footprint:"Intersects(%s)"''' % \
                        (refdate,cloudcoverlow,cloudcoverhigh,criterium['platform'],criterium['polygon']), 'rows': '1000', 'start':'0'})
 
@@ -378,12 +385,17 @@ for url in urls:
             if string.attrib.has_key('name'):
                 if string.attrib['name'] == 'cloudcoverpercentage':
                     cloudcover = string.text
-        products.append([id,title,ingdate,footprint,beginposition,endposition,orbitdirection,producttype,orbitno,relorbitno,platform,cloudcover])
-        if verbose:
-            print id, title, ingdate, footprint, beginposition, endposition, \
+        if platform == "Sentinel-2":
+            products.append([id,title,ingdate,footprint,beginposition,endposition,orbitdirection,producttype,orbitno,relorbitno,platform,cloudcover])
+            if verbose:
+                print id, title, ingdate, footprint, beginposition, endposition, \
                     orbitdirection, producttype, orbitno, relorbitno, platform, \
                     cloudcover
-
+        if platform == "Sentinel-1":
+            products.append([id,title,ingdate,footprint,beginposition,endposition,orbitdirection,producttype,orbitno,relorbitno,platform])
+            if verbose:
+                print id, title, ingdate, footprint, beginposition, endposition, \
+                    orbitdirection, producttype, orbitno, relorbitno, platform
 
 cur = db.cursor()
 
@@ -402,7 +414,8 @@ for product in products:
     orbitno = product[8]
     relorbitno = product[9]
     platform = product[10]
-    cloudcover = product[11]
+    if platform == "Sentinel-2":
+        cloudcover = product[11]
     cur.execute('''SELECT COUNT(*) FROM products WHERE hash=?''',(uniqid,))
     row = cur.fetchone()
 
@@ -471,47 +484,95 @@ for product in products:
 
 
         if kml:
-            poly = ogr.CreateGeometryFromWkt(footprint)
-            style = '''<Style
-id="ballon-style"><BalloonStyle><text><![CDATA[
-Name = $[Name]
-IngestionDate = $[IngestionDate]
-BeginDate = $[BeginDate]
-EndDate = $[EndDate]
-ProductType = $[ProductType]
-OrbitDirection = $[OrbitDirection]
-OrbitNumber = $[OrbitNumber]
-RelativeOrbitNumber = $[RelativeOrbitNumber]
-Platform = $[PlatformName]
-]]>
-</text></BalloonStyle></Style>
-'''
-            extdata = '''<ExtendedData>
-<Data name="Name"><value>%s</value></Data>
-<Data name="IngestionDate"><value>%s</value></Data>
-<Data name="BeginDate"><value>%s</value></Data>
-<Data name="EndDate"><value>%s</value></Data>
-<Data name="ProductType"><value>%s</value></Data>
-<Data name="OrbitDirection"><value>%s</value></Data>
-<Data name="OrbitNumber"><value>%s</value></Data>
-<Data name="RelativeOrbitNumber"><value>%s</value></Data>
-<Data name="PlatformName"><value>%s</value></Data>
-</ExtendedData> ''' % (name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,platform,cloudcover)
-            buff = '''<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-<Document>%s<Placemark><name>%s</name><StyleUrl>#ballon-style</StyleUrl>%s%s</Placemark></Document></kml>''' % (style,name,extdata,poly.ExportToKML())
-            kmlfile = open(name+'.kml','w')
-            kmlfile.write(buff)
-            kmlfile.close()
+            if platform == "Sentinel-1":
+                poly = ogr.CreateGeometryFromWkt(footprint)
+                style = '''<Style
+    id="ballon-style"><BalloonStyle><text><![CDATA[
+    Name = $[Name]
+    IngestionDate = $[IngestionDate]
+    BeginDate = $[BeginDate]
+    EndDate = $[EndDate]
+    ProductType = $[ProductType]
+    OrbitDirection = $[OrbitDirection]
+    OrbitNumber = $[OrbitNumber]
+    RelativeOrbitNumber = $[RelativeOrbitNumber]
+    Platform = $[PlatformName]
+    ]]>
+    </text></BalloonStyle></Style>
+    '''
+                extdata = '''<ExtendedData>
+    <Data name="Name"><value>%s</value></Data>
+    <Data name="IngestionDate"><value>%s</value></Data>
+    <Data name="BeginDate"><value>%s</value></Data>
+    <Data name="EndDate"><value>%s</value></Data>
+    <Data name="ProductType"><value>%s</value></Data>
+    <Data name="OrbitDirection"><value>%s</value></Data>
+    <Data name="OrbitNumber"><value>%s</value></Data>
+    <Data name="RelativeOrbitNumber"><value>%s</value></Data>
+    <Data name="PlatformName"><value>%s</value></Data>
+    </ExtendedData> ''' % (name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,platform)
+                buff = '''<?xml version="1.0" encoding="UTF-8"?>
+    <kml xmlns="http://www.opengis.net/kml/2.2">
+    <Document>%s<Placemark><name>%s</name><StyleUrl>#ballon-style</StyleUrl>%s%s</Placemark></Document></kml>''' % (style,name,extdata,poly.ExportToKML())
+                kmlfile = open(name+'.kml','w')
+                kmlfile.write(buff)
+                kmlfile.close()
 
-        simple = shapely.wkt.loads(footprint)
-        footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
-        centroid_r1 = shapely.wkt.dumps(simple.centroid,rounding_precision=1)
-        cur.execute('''INSERT OR REPLACE INTO products 
-                (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover) 
-                VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
-                (uniqid,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover))
-        db.commit()
+            if platform == "Sentinel-2":
+                poly = ogr.CreateGeometryFromWkt(footprint)
+                style = '''<Style
+    id="ballon-style"><BalloonStyle><text><![CDATA[
+    Name = $[Name]
+    IngestionDate = $[IngestionDate]
+    BeginDate = $[BeginDate]
+    EndDate = $[EndDate]
+    ProductType = $[ProductType]
+    OrbitDirection = $[OrbitDirection]
+    OrbitNumber = $[OrbitNumber]
+    RelativeOrbitNumber = $[RelativeOrbitNumber]
+    Platform = $[PlatformName]
+    CloudCover = $[CloudCover]
+    ]]>
+    </text></BalloonStyle></Style>
+    '''
+                extdata = '''<ExtendedData>
+    <Data name="Name"><value>%s</value></Data>
+    <Data name="IngestionDate"><value>%s</value></Data>
+    <Data name="BeginDate"><value>%s</value></Data>
+    <Data name="EndDate"><value>%s</value></Data>
+    <Data name="ProductType"><value>%s</value></Data>
+    <Data name="OrbitDirection"><value>%s</value></Data>
+    <Data name="OrbitNumber"><value>%s</value></Data>
+    <Data name="RelativeOrbitNumber"><value>%s</value></Data>
+    <Data name="PlatformName"><value>%s</value></Data>
+    <Data name="CloudCover"><value>%s</value></Data>
+    </ExtendedData> ''' % (name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,platform,cloudcover)
+                buff = '''<?xml version="1.0" encoding="UTF-8"?>
+    <kml xmlns="http://www.opengis.net/kml/2.2">
+    <Document>%s<Placemark><name>%s</name><StyleUrl>#ballon-style</StyleUrl>%s%s</Placemark></Document></kml>''' % (style,name,extdata,poly.ExportToKML())
+                kmlfile = open(name+'.kml','w')
+                kmlfile.write(buff)
+                kmlfile.close()
+
+        if platform == "Sentinel-1":
+            simple = shapely.wkt.loads(footprint)
+            footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
+            centroid_r1 = shapely.wkt.dumps(simple.centroid,rounding_precision=1)
+            cur.execute('''INSERT OR REPLACE INTO products 
+                    (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1) 
+                    VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
+                    (uniqid,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1))
+            db.commit()
+
+        if platform == "Sentinel-2":
+            simple = shapely.wkt.loads(footprint)
+            footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
+            centroid_r1 = shapely.wkt.dumps(simple.centroid,rounding_precision=1)
+            cur.execute('''INSERT OR REPLACE INTO products 
+                    (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover) 
+                    VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
+                    (uniqid,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover))
+            db.commit()
     else:
         if verbose:
             print "skipping %s" % name
