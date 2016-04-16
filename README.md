@@ -4,8 +4,8 @@ ESA Sentinel-1 Science Hub rolling archive downloader
 This is an easy script to download Sentinel-1 data from the ESA rolling archive
 located at the Scientific Data Hub https://scihub.esa.int/
 
-The archive can be queryed by a custom web service API documented at
-https://scihub.esa.int/userguide/BatchScripting
+The archive can be queryed by a custom web service API documented at 
+https://scihub.copernicus.eu/userguide/5APIsAndBatchScripting
 and this script adopt it to do a better job in downloading periodically
 and storing images. The API is based on OpenData http://www.odata.org/
 and OpenSearch http://www.opensearch.org/
