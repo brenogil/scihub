@@ -1,7 +1,7 @@
-ESA Sentinel-1 Science Hub rolling archive downloader
-=====================================================
+ESA Sentinel-1 and Sentinel-2 Science Hub rolling archive downloader
+====================================================================
 
-This is an easy script to download Sentinel-1 data from the ESA rolling archive
+This is an easy script to download Sentinel-1 and Sentinel-2 data from the ESA rolling archive
 located at the Scientific Data Hub https://scihub.esa.int/
 
 The archive can be queryed by a custom web service API documented at 
@@ -28,29 +28,38 @@ but it is quite complete, thanks to a series of features:
 
 What follows is an example of configuration .cfg INI file used by this script:
 
-	;
-	; Polygons, types and directions need to be coherent each other and list
-	; the same number of items.
-	;
-	
-	[Polygons]
-	
-	polygon1 = POLYGON((15.819485626219 40.855620164394,16.445706329344 40.855620164394,16.445706329344 41.120994219991,15.819485626219 41.120994219991,15.819485626219 40.855620164394))
-	polygon2 = POLYGON((16.349232635497 40.791189284951,16.909535369872 40.791189284951,16.909535369872 41.131338714384,16.349232635497 41.131338714384,16.349232635497 40.791189284951))
-	
-	[Types]
-	
-	type1 = SLC
-	type2 = SLC
-	
-	[Directions]
-	
-	direction1 = Descending
-	direction2 = Ascending
-	
-	[Authentication]
-	username = XXXXXXXX
-	password = YYYYYYY
+    [Polygons]
+    
+    polygon1 = POLYGON((15.819485626219 40.855620164394,16.445706329344 40.855620164394,16.445706329344 41.120994219991,15.819485626219 41.120994219991,15.819485626219 40.855620164394))
+    polygon2 = POLYGON((16.349232635497 40.791189284951,16.909535369872 40.791189284951,16.909535369872 41.131338714384,16.349232635497 41.131338714384,16.349232635497 40.791189284951))
+    
+    [Platform]
+    
+    platform1 = Sentinel-1
+    platform2 = Sentinel-2
+
+    [Types]
+    
+    type1 = SLC
+    type2 = SLC
+    
+    [Directions]
+    
+    direction1 = Descending
+    direction2 = Ascending
+    
+    [Cloud]
+    ; Only relevant for Sentinel-2
+    cloudpercentagelower = 0
+    cloudpercentageupper = 10
+
+    [Date_Range]
+    From = 2015-06-01
+    To = NOW  ;Do not use
+
+    [Authentication]
+    username = XXXXXXXX
+    password = YYYYYYY
 
 This file can be stored as `/usr/local/etc/scihub.cfg` or `$HOME/.scihub.cfg` or
 splitted among them, as more convenient.

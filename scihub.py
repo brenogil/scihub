@@ -282,9 +282,12 @@ try:
 
     if verbose:
         for i in range(len(polygons)):
-            print 'Polygon: %s, %s, %s, %s' % (polygons[i], types[i], directions[i], platforms[i])
-            if platform == "Sentinel-2":
-                print  'Cloud cover ranging from %s to %s' % (cloudcoverlow, cloudcoverhigh)
+            if platforms[i] == "Sentinel-1":
+                print 'Polygon: %s, %s, %s, %s' % (polygons[i], types[i], directions[i], platforms[i])
+                platform = "Sentinel-1"
+            if platforms[i] == "Sentinel-2":
+                print 'Polygon: %s, %s. Cloud cover ranging from %s to %s' % (polygons[i],  platforms[i], cloudcoverlow, cloudcoverhigh)
+                platform = "Sentinel-2"
 
 except configparser.Error, e:
     print 'Error parsing configuration file: %s' % e
@@ -300,10 +303,10 @@ cur.execute('''select date(idate) as d from products order by d desc limit 1''')
 last = cur.fetchone()
 if last is None or force:
     last = []
-    last.append('2014-01-01')
+    last.append(fromdate)
 
 if verbose:
-    print 'Latest ingestion date considered: %s' % last[0]
+    print 'Earliest ingestion date considered: %s' % last[0]
 
 refdate = last[0] + 'T00:00:00.000Z'
 
@@ -582,4 +585,3 @@ if list_products:
 
 db.close()
 sys.exit(0)
-
