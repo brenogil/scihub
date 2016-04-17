@@ -99,7 +99,8 @@ usage: %s [-c|-d|-D path|-f|-h|-k|-l|-m|-v|-L path|-C path|-o|-a|-r|-t]
     -m --manifest download manifest files
     -v --verbose run verbosely
     -L --products= <path> output products names to file
-    -o --overwrite overwrite data .zip file even if it exists
+    -o --overwrite overwrite data .zip fpolygon2 = POLYGON((102.36950535186766 8.119462304018228,109.15149557534991 8.119462304018228,109.15149557534991 23.06058566534506,102.36950535186766 23.06058566534506,102.36950535186766 8.119462304018228))
+ile even if it exists
     -a --alternative use the apihub alternative site
     -r --resume try using resume to continue download
     -t --test test ZIP file at check time
@@ -245,9 +246,6 @@ if create_db:
 
 auth = ''
 
-if alternative:
-    searchbase = alt_searchbase
-    servicebase = alt_servicebase 
 
 try:
     config = configparser.ConfigParser()
@@ -292,6 +290,14 @@ try:
 except configparser.Error, e:
     print 'Error parsing configuration file: %s' % e
     sys.exit(4)
+
+
+if alternative:
+    searchbase = alt_searchbase
+    servicebase = alt_servicebase
+    username = "guest"
+    password = "guest"
+    auth = username + ':' + password
 
 if not len(auth):
     print 'Missing ESA SCIHUB authentication information'
