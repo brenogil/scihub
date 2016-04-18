@@ -8,6 +8,8 @@ __pycache__/
 # cfg for security issues
 *.cfg
 *.sqlite
+*.sh
+*.zip
 
 # Distribution / packaging
 .Python
