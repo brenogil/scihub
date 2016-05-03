@@ -73,12 +73,13 @@ import ConfigParser as configparser
 import sqlite3 as sqlite
 import xml.etree.ElementTree as et
 from StringIO import StringIO
-from osgeo import ogr
 import shapely.wkt
+from shapely.geometry import mapping
 import zipfile
 import re
 import time
 import magic
+import fiona
 
 def usage():
     print '''usage: %s [-c|-d|-D path|-L path|-C path|-f|-h|-k|-l|-m|-v|-o|-a|-r]''' % sys.argv[0]
@@ -295,9 +296,6 @@ except configparser.Error, e:
 if alternative:
     searchbase = alt_searchbase
     servicebase = alt_servicebase
-    username = "guest"
-    password = "guest"
-    auth = username + ':' + password
 
 if not len(auth):
     print 'Missing ESA SCIHUB authentication information'
@@ -494,75 +492,56 @@ for product in products:
 
         if kml:
             if platform == "Sentinel-1":
-                poly = ogr.CreateGeometryFromWkt(footprint)
-                style = '''<Style
-    id="ballon-style"><BalloonStyle><text><![CDATA[
-    Name = $[Name]
-    IngestionDate = $[IngestionDate]
-    BeginDate = $[BeginDate]
-    EndDate = $[EndDate]
-    ProductType = $[ProductType]
-    OrbitDirection = $[OrbitDirection]
-    OrbitNumber = $[OrbitNumber]
-    RelativeOrbitNumber = $[RelativeOrbitNumber]
-    Platform = $[PlatformName]
-    ]]>
-    </text></BalloonStyle></Style>
-    '''
-                extdata = '''<ExtendedData>
-    <Data name="Name"><value>%s</value></Data>
-    <Data name="IngestionDate"><value>%s</value></Data>
-    <Data name="BeginDate"><value>%s</value></Data>
-    <Data name="EndDate"><value>%s</value></Data>
-    <Data name="ProductType"><value>%s</value></Data>
-    <Data name="OrbitDirection"><value>%s</value></Data>
-    <Data name="OrbitNumber"><value>%s</value></Data>
-    <Data name="RelativeOrbitNumber"><value>%s</value></Data>
-    <Data name="PlatformName"><value>%s</value></Data>
-    </ExtendedData> ''' % (name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,platform)
-                buff = '''<?xml version="1.0" encoding="UTF-8"?>
-    <kml xmlns="http://www.opengis.net/kml/2.2">
-    <Document>%s<Placemark><name>%s</name><StyleUrl>#ballon-style</StyleUrl>%s%s</Placemark></Document></kml>''' % (style,name,extdata,poly.ExportToKML())
-                kmlfile = open(name+'.kml','w')
-                kmlfile.write(buff)
-                kmlfile.close()
+                schema = {'geometry': 'Polygon', 'properties': {
+                    'Name':'str',
+                    'IngestionDate':'str',
+                    'BeginDate':'str',
+                    'EndDate':'str',
+                    'ProductType':'str',
+                    'OrbitDirection':'str',
+                    'OrbitNumber':'int',
+                    'RelativeOrbitNumber':'int',
+                    'PlatformName':'str'}}
+
+                with fiona.open(name, "w", "ESRI Shapefile", schema) as c:
+                    geometry =  shapely.wkt.loads(footprint)
+                    c.write({'geometry': mapping(geometry),
+                             'properties':{'Name': name,
+                                           'IngestionDate': idate,
+                                           'BeginDate': bdate,
+                                           'EndDate': edate,
+                                           'ProductType': ptype,
+                                           'OrbitDirection': direction,
+                                           'OrbitNumber': orbitno,
+                                           'RelativeOrbitNumber': relorbitno,
+                                           'PlatformName': platform}})
 
             if platform == "Sentinel-2":
-                poly = ogr.CreateGeometryFromWkt(footprint)
-                style = '''<Style
-    id="ballon-style"><BalloonStyle><text><![CDATA[
-    Name = $[Name]
-    IngestionDate = $[IngestionDate]
-    BeginDate = $[BeginDate]
-    EndDate = $[EndDate]
-    ProductType = $[ProductType]
-    OrbitDirection = $[OrbitDirection]
-    OrbitNumber = $[OrbitNumber]
-    RelativeOrbitNumber = $[RelativeOrbitNumber]
-    Platform = $[PlatformName]
-    CloudCover = $[CloudCover]
-    ]]>
-    </text></BalloonStyle></Style>
-    '''
-                extdata = '''<ExtendedData>
-    <Data name="Name"><value>%s</value></Data>
-    <Data name="IngestionDate"><value>%s</value></Data>
-    <Data name="BeginDate"><value>%s</value></Data>
-    <Data name="EndDate"><value>%s</value></Data>
-    <Data name="ProductType"><value>%s</value></Data>
-    <Data name="OrbitDirection"><value>%s</value></Data>
-    <Data name="OrbitNumber"><value>%s</value></Data>
-    <Data name="RelativeOrbitNumber"><value>%s</value></Data>
-    <Data name="PlatformName"><value>%s</value></Data>
-    <Data name="CloudCover"><value>%s</value></Data>
-    </ExtendedData> ''' % (name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,platform,cloudcover)
-                buff = '''<?xml version="1.0" encoding="UTF-8"?>
-    <kml xmlns="http://www.opengis.net/kml/2.2">
-    <Document>%s<Placemark><name>%s</name><StyleUrl>#ballon-style</StyleUrl>%s%s</Placemark></Document></kml>''' % (style,name,extdata,poly.ExportToKML())
-                kmlfile = open(name+'.kml','w')
-                kmlfile.write(buff)
-                kmlfile.close()
+                schema = {'geometry': 'Polygon', 'properties': {
+                    'Name':'str',
+                    'IngestionDate':'str',
+                    'BeginDate':'str',
+                    'EndDate':'str',
+                    'ProductType':'str',
+                    'OrbitDirection':'str',
+                    'OrbitNumber':'int',
+                    'RelativeOrbitNumber':'int',
+                    'PlatformName':'str',
+                    'CloudCover':'str'}}
 
+                with fiona.open(name, "w", "ESRI Shapefile", schema) as c:
+                    geometry =  shapely.wkt.loads(footprint)
+                    c.write({'geometry': mapping(geometry),
+                             'properties':{'Name': name,
+                                           'IngestionDate': idate,
+                                           'BeginDate': bdate,
+                                           'EndDate': edate,
+                                           'ProductType': ptype,
+                                           'OrbitDirection': direction,
+                                           'OrbitNumber': orbitno,
+                                           'RelativeOrbitNumber': relorbitno,
+                                           'PlatformName': platform,
+                                           'CloudCover': cloudcover}})
         if platform == "Sentinel-1":
             simple = shapely.wkt.loads(footprint)
             footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
