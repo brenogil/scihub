@@ -80,6 +80,8 @@ import re
 import time
 import magic
 import fiona
+from fiona.crs import from_epsg
+
 
 def usage():
     print '''usage: %s [-c|-d|-D path|-L path|-C path|-f|-h|-k|-l|-m|-v|-o|-a|-r]''' % sys.argv[0]
@@ -491,57 +493,48 @@ for product in products:
 
 
         if kml:
-            if platform == "Sentinel-1":
-                schema = {'geometry': 'Polygon', 'properties': {
-                    'Name':'str',
-                    'IngestionDate':'str',
-                    'BeginDate':'str',
-                    'EndDate':'str',
-                    'ProductType':'str',
-                    'OrbitDirection':'str',
-                    'OrbitNumber':'int',
-                    'RelativeOrbitNumber':'int',
-                    'PlatformName':'str'}}
+            timestr = time.strftime("%Y-%m-%d")
+            schema = {'geometry': 'Polygon', 'properties': {
+                'Name':'str',
+                'IngestionDate':'str',
+                'BeginDate':'str',
+                'EndDate':'str',
+                'ProductType':'str',
+                'OrbitDirection':'str',
+                'OrbitNumber':'int',
+                'RelativeOrbitNumber':'int',
+                'PlatformName':'str',
+                'CloudCover':'str'}}
+            with fiona.open(timestr, "w", "ESRI Shapefile", schema, crs=from_epsg(4326)) as c:
+                for prod in products:
+                    geometry =  shapely.wkt.loads(prod[3])
+                    if prod[10] == "Sentinel-1":
+                        c.write({'geometry': mapping(geometry),
+                                 'properties':{'Name': prod[1],
+                                               'IngestionDate': isodate(prod[2]),
+                                               'BeginDate': isodate(prod[4]),
+                                               'EndDate': isodate(prod[5]),
+                                               'ProductType': prod[7],
+                                               'OrbitDirection': prod[6],
+                                               'OrbitNumber': prod[8],
+                                               'RelativeOrbitNumber': prod[9],
+                                               'PlatformName': prod[10],
+                                 'CloudCover': '-'}})
 
-                with fiona.open(name, "w", "ESRI Shapefile", schema) as c:
-                    geometry =  shapely.wkt.loads(footprint)
-                    c.write({'geometry': mapping(geometry),
-                             'properties':{'Name': name,
-                                           'IngestionDate': idate,
-                                           'BeginDate': bdate,
-                                           'EndDate': edate,
-                                           'ProductType': ptype,
-                                           'OrbitDirection': direction,
-                                           'OrbitNumber': orbitno,
-                                           'RelativeOrbitNumber': relorbitno,
-                                           'PlatformName': platform}})
+                    if prod[10] == "Sentinel-2":
+                        geometry =  shapely.wkt.loads(prod[3])
+                        c.write({'geometry': mapping(geometry),
+                                 'properties':{'Name': prod[1],
+                                               'IngestionDate': isodate(prod[2]),
+                                               'BeginDate': isodate(prod[4]),
+                                               'EndDate': isodate(prod[5]),
+                                               'ProductType': prod[7],
+                                               'OrbitDirection': prod[6],
+                                               'OrbitNumber': prod[8],
+                                               'RelativeOrbitNumber': prod[9],
+                                               'PlatformName': prod[10],
+                                               'CloudCover': prod[11]}})
 
-            if platform == "Sentinel-2":
-                schema = {'geometry': 'Polygon', 'properties': {
-                    'Name':'str',
-                    'IngestionDate':'str',
-                    'BeginDate':'str',
-                    'EndDate':'str',
-                    'ProductType':'str',
-                    'OrbitDirection':'str',
-                    'OrbitNumber':'int',
-                    'RelativeOrbitNumber':'int',
-                    'PlatformName':'str',
-                    'CloudCover':'str'}}
-
-                with fiona.open(name, "w", "ESRI Shapefile", schema) as c:
-                    geometry =  shapely.wkt.loads(footprint)
-                    c.write({'geometry': mapping(geometry),
-                             'properties':{'Name': name,
-                                           'IngestionDate': idate,
-                                           'BeginDate': bdate,
-                                           'EndDate': edate,
-                                           'ProductType': ptype,
-                                           'OrbitDirection': direction,
-                                           'OrbitNumber': orbitno,
-                                           'RelativeOrbitNumber': relorbitno,
-                                           'PlatformName': platform,
-                                           'CloudCover': cloudcover}})
         if platform == "Sentinel-1":
             simple = shapely.wkt.loads(footprint)
             footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
