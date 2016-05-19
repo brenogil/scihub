@@ -102,8 +102,7 @@ usage: %s [-c|-d|-D path|-f|-h|-k|-l|-m|-v|-L path|-C path|-o|-a|-r|-t]
     -m --manifest download manifest files
     -v --verbose run verbosely
     -L --products= <path> output products names to file
-    -o --overwrite overwrite data .zip fpolygon2 = POLYGON((102.36950535186766 8.119462304018228,109.15149557534991 8.119462304018228,109.15149557534991 23.06058566534506,102.36950535186766 23.06058566534506,102.36950535186766 8.119462304018228))
-ile even if it exists
+    -o --overwrite overwrite data .zip file even if it exists
     -a --alternative use the apihub alternative site
     -r --resume try using resume to continue download
     -t --test test ZIP file at check time
@@ -169,7 +168,7 @@ try:
     m.load()
 except AttributeError,e:
     m = magic.Magic(mime=True)
-    m.file = m.from_file
+    m.file = m.from_file 
 
 try:
     opts, args = getopt.getopt(sys.argv[1:],'cvfdhmklD:L:C:oart',
@@ -411,6 +410,7 @@ cur = db.cursor()
 if list_products:
     pf = open(productsfile,'w')
 
+records = []
 for product in products:
     uniqid = product[0]
     name = product[1]
@@ -505,43 +505,44 @@ for product in products:
                 'RelativeOrbitNumber':'int',
                 'PlatformName':'str',
                 'CloudCover':'str'}}
-            with fiona.open(timestr, "w", "ESRI Shapefile", schema, crs=from_epsg(4326)) as c:
-                for prod in products:
-                    geometry =  shapely.wkt.loads(prod[3])
-                    if prod[10] == "Sentinel-1":
-                        c.write({'geometry': mapping(geometry),
-                                 'properties':{'Name': prod[1],
-                                               'IngestionDate': isodate(prod[2]),
-                                               'BeginDate': isodate(prod[4]),
-                                               'EndDate': isodate(prod[5]),
-                                               'ProductType': prod[7],
-                                               'OrbitDirection': prod[6],
-                                               'OrbitNumber': prod[8],
-                                               'RelativeOrbitNumber': prod[9],
-                                               'PlatformName': prod[10],
-                                 'CloudCover': '-'}})
 
-                    if prod[10] == "Sentinel-2":
-                        geometry =  shapely.wkt.loads(prod[3])
-                        c.write({'geometry': mapping(geometry),
-                                 'properties':{'Name': prod[1],
-                                               'IngestionDate': isodate(prod[2]),
-                                               'BeginDate': isodate(prod[4]),
-                                               'EndDate': isodate(prod[5]),
-                                               'ProductType': prod[7],
-                                               'OrbitDirection': prod[6],
-                                               'OrbitNumber': prod[8],
-                                               'RelativeOrbitNumber': prod[9],
-                                               'PlatformName': prod[10],
-                                               'CloudCover': prod[11]}})
+            geometry = shapely.wkt.loads(product[3])
+            if product[10] == "Sentinel-1":
+                records.append({'geometry': mapping(geometry),
+                         'properties':{'Name': product[1],
+                                       'IngestionDate': isodate(product[2]),
+                                       'BeginDate': isodate(product[4]),
+                                       'EndDate': isodate(product[5]),
+                                       'ProductType': product[7],
+                                       'OrbitDirection': product[6],
+                                       'OrbitNumber': product[8],
+                                       'RelativeOrbitNumber': product[9],
+                                       'PlatformName': product[10],
+                                       'CloudCover': '-'}})
+
+            if product[10] == "Sentinel-2":
+                records.append({'geometry': mapping(geometry),
+                         'properties':{'Name': product[1],
+                                       'IngestionDate': isodate(product[2]),
+                                       'BeginDate': isodate(product[4]),
+                                       'EndDate': isodate(product[5]),
+                                       'ProductType': product[7],
+                                       'OrbitDirection': product[6],
+                                       'OrbitNumber': product[8],
+                                       'RelativeOrbitNumber': product[9],
+                                       'PlatformName': product[10],
+                                       'CloudCover': product[11]}})
+
+            with fiona.open(timestr,'w', "ESRI Shapefile", schema, crs=from_epsg(4326)) as c:
+                c.writerecords(records)
 
         if platform == "Sentinel-1":
             simple = shapely.wkt.loads(footprint)
             footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
             centroid_r1 = shapely.wkt.dumps(simple.centroid,rounding_precision=1)
-            cur.execute('''INSERT OR REPLACE INTO products 
-                    (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1) 
-                    VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
+            cur.execute('''INSERT OR REPLACE INTO products
+                    (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1)
+                    VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                     (uniqid,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1))
             db.commit()
 
@@ -549,9 +550,9 @@ for product in products:
             simple = shapely.wkt.loads(footprint)
             footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
             centroid_r1 = shapely.wkt.dumps(simple.centroid,rounding_precision=1)
-            cur.execute('''INSERT OR REPLACE INTO products 
-                    (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover) 
-                    VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', 
+            cur.execute('''INSERT OR REPLACE INTO products
+                    (id,hash,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover)
+                    VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                     (uniqid,name,idate,bdate,edate,ptype,direction,orbitno,relorbitno,footprint,platform,footprint_r1,centroid_r1,cloudcover))
             db.commit()
     else:
