@@ -304,11 +304,14 @@ if not len(auth):
 
 cur = db.cursor()
 
-cur.execute('''select date(idate) as d from products order by d desc limit 1''')
-last = cur.fetchone()
-if last is None or force:
-    last = []
-    last.append(fromdate)
+# cur.execute('''select date(idate) as d from products order by d desc limit 1''')
+# last = cur.fetchone()
+# if last is None or force:
+#     last = []
+#     last.append('2015-01-01')
+
+last = []
+last.append(fromdate)
 
 if verbose:
     print 'Earliest ingestion date considered: %s' % last[0]
@@ -328,6 +331,11 @@ for criterium in criteria:
         params.append({'q': '''ingestiondate:[%s TO NOW] AND cloudcoverpercentage:[%s TO %s] AND platformname:%s AND footprint:"Intersects(%s)"''' % \
                        (refdate,cloudcoverlow,cloudcoverhigh,criterium['platform'],criterium['polygon']), 'rows': '1000', 'start':'0'})
 
+print "fromdate=",fromdate
+print "last=", last[0]
+print "refdate=", refdate
+print "***************************************************************"
+print params
 # urls need encoding due to complexity of arguments
 
 urls = []
