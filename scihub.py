@@ -275,6 +275,7 @@ try:
     cloudcoverlow =  config.get('Cloud','cloudpercentagelower')
     cloudcoverhigh =  config.get('Cloud','cloudpercentageupper')
     fromdate = config.get('Date_Range','From')
+    todate = config.get('Date_Range','To')
 
     if len(types) != len(polygons) or len(directions) != len(polygons) or len(platforms) != len(polygons):
         print 'Incorrect number of polygons, types, platforms and direction in configuration file'
@@ -312,11 +313,13 @@ cur = db.cursor()
 
 last = []
 last.append(fromdate)
+last.append(todate)
 
 if verbose:
     print 'Earliest ingestion date considered: %s' % last[0]
 
 refdate = last[0] + 'T00:00:00.000Z'
+refdate2 = last[1] + 'T23:59:59.999Z'
 
 criteria = []
 for i in range(len(platforms)):
@@ -325,11 +328,11 @@ for i in range(len(platforms)):
 params = []
 for criterium in criteria:
     if criterium['platform'] == "Sentinel-1":
-        params.append({'q': '''ingestiondate:[%s TO NOW] AND producttype:%s AND orbitdirection:%s AND footprint:"Intersects(%s)"''' % \
-                   (refdate, criterium['type'],criterium['direction'],criterium['polygon']), 'rows': '1000', 'start':'0'})
+        params.append({'q': '''ingestiondate:[%s TO %s] AND producttype:%s AND orbitdirection:%s AND footprint:"Intersects(%s)"''' % \
+                   (refdate, refdate2, criterium['type'],criterium['direction'],criterium['polygon']), 'rows': '1000', 'start':'0'})
     if criterium['platform'] == "Sentinel-2":
-        params.append({'q': '''ingestiondate:[%s TO NOW] AND cloudcoverpercentage:[%s TO %s] AND platformname:%s AND footprint:"Intersects(%s)"''' % \
-                       (refdate,cloudcoverlow,cloudcoverhigh,criterium['platform'],criterium['polygon']), 'rows': '1000', 'start':'0'})
+        params.append({'q': '''ingestiondate:[%s TO %s] AND cloudcoverpercentage:[%s TO %s] AND platformname:%s AND footprint:"Intersects(%s)"''' % \
+                       (refdate, refdate2 , cloudcoverlow,cloudcoverhigh,criterium['platform'],criterium['polygon']), 'rows': '1000', 'start':'0'})
 
 print "fromdate=",fromdate
 print "last=", last[0]
@@ -541,9 +544,6 @@ for product in products:
                                        'PlatformName': product[10],
                                        'CloudCover': product[11]}})
 
-            with fiona.open(timestr,'w', "ESRI Shapefile", schema, crs=from_epsg(4326)) as c:
-                c.writerecords(records)
-
         if platform == "Sentinel-1":
             simple = shapely.wkt.loads(footprint)
             footprint_r1 = shapely.wkt.dumps(simple,rounding_precision=1)
@@ -566,6 +566,10 @@ for product in products:
     else:
         if verbose:
             print "skipping %s" % name
+
+
+with fiona.open(timestr,'w', "ESRI Shapefile", schema, crs=from_epsg(4326)) as c:
+    c.writerecords(records)
 
 if list_products:
     pf.close()
