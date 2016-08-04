@@ -55,7 +55,7 @@ What follows is an example of configuration .cfg INI file used by this script:
 
     [Date_Range]
     From = 2015-06-01
-    To = NOW  ;Do not use
+    To = 2016-06-01
 
     [Authentication]
     username = XXXXXXXX
